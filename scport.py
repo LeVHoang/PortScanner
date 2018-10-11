@@ -1,7 +1,6 @@
-# Code chay tren python2. Can cai dat them nmap va ipaddress
-import nmap
 import socket
 import ipaddress
+import subprocess
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -11,36 +10,30 @@ def iplist(target):
     return net4.hosts()
 
 def itarget(target): 
-    ip = target.split(".")
+    ip = target.split('.')
     try:
         int(ip[-1])
         return target
     except:
         return socket.gethostbyname(target)
 
-nm = nmap.PortScanner()
+def ping(host):
+    cmd = ['ping', '-w', '1', str(host)]
+    p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stdin=subprocess.PIPE,bufsize=100000,stderr=subprocess.PIPE)
+    result = p.communicate()[0]
+    result = bytes.decode(result)
+    if "rtt" in result:
+        return host
+    return None
 
-def nscan_port(host):
-    try:
-        host = unicode(host, 'utf-8')
-        s = nm.scan(host)
-        if s['scan'] == {}:
-            print('IP: %s\tStatus: %s' % (host, 'down'))
-            return
-        status = nm[host].state()
-        if(str(status)=='up'):
-            print('----------------------------------------------------')
-            print('Host : %s' % (host))
-            print('State : %s' % nm[host].state())
-            for proto in nm[host].all_protocols():
-                print('Protocol : %s' % proto)
-                lport = nm[host][proto].keys()
-                lport.sort()
-                for port in lport:
-                    print ('port : %s\tstate : %s' % (port, nm[host][proto][port]['state']))
-            print('----------------------------------------------------')
-    except:
-        print('! ERROR')
+def port_scan(host, port):
+     cmd ='nc -z -v -w 1 ' + host + ' ' + str(port)
+     process = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     result = bytes.decode(process.stderr.read())
+     if 'succeeded' in result:
+        print'Port: %s\tState: Open'%(int(port))
+     else:
+        print'Port: %s\tState: Close'%(int(port))
 
 def main():
     host = raw_input('IP/Domain: ')
@@ -49,10 +42,21 @@ def main():
         ilist = iplist(host)
         for x in ilist:
             x = str(x)
-            nscan_port(x)
+            if ping(x) is not None:
+                print'Host: %s is up!'%(x)
+                print'****'
+                for y in range(1, 65535):
+                    port_scan(x, y)
+            else:
+                print'Host: %s is down!'%(x)
+            print'******************'
     else:
         host = itarget(host)
-        nscan_port(host)
-
-
+        if ping(host) is not None:
+            print'Host: %s is up!'%(host)
+            print'**********'
+            for x in range(1, 65535):
+                port_scan(host, x)
+        else:
+             print'Host: %s is down!'%(host)
 main()
